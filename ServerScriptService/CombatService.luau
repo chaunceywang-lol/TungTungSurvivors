@@ -7,6 +7,15 @@ local ProgressionService = require(script.Parent:WaitForChild("ProgressionServic
 local CombatService = {}
 local started = false
 local nextAttackAt = {}
+local connection = nil
+local removingConnection = nil
+
+function CombatService.Stop()
+	started = false
+	if connection then connection:Disconnect(); connection = nil end
+	if removingConnection then removingConnection:Disconnect(); removingConnection = nil end
+	table.clear(nextAttackAt)
+end
 
 function CombatService.Start()
 	if started then
@@ -15,16 +24,16 @@ function CombatService.Start()
 	started = true
 
 	-- Outbound cosmetic event only. Clients cannot request hits or damage.
-	local swingEvent = Instance.new("RemoteEvent")
+	local swingEvent = ReplicatedStorage:FindFirstChild("TungBatSwing") or Instance.new("RemoteEvent")
 	swingEvent.Name = "TungBatSwing"
 	swingEvent.Parent = ReplicatedStorage
 
-	Players.PlayerRemoving:Connect(function(player)
+	removingConnection = Players.PlayerRemoving:Connect(function(player)
 		nextAttackAt[player] = nil
 	end)
 
 	local elapsed = 0
-	RunService.Heartbeat:Connect(function(deltaTime)
+	connection = RunService.Heartbeat:Connect(function(deltaTime)
 		elapsed += deltaTime
 		if elapsed < 0.1 then
 			return
@@ -33,6 +42,7 @@ function CombatService.Start()
 		local now = os.clock()
 
 		for _, player in Players:GetPlayers() do
+			if not started then return end
 			local character = player.Character
 			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 			local root = character and character:FindFirstChild("HumanoidRootPart")

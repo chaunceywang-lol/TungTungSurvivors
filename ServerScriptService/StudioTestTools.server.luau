@@ -7,6 +7,7 @@ local Players = game:GetService("Players")
 local ServerStorage = game:GetService("ServerStorage")
 local XPService = require(script.Parent:WaitForChild("XPService"))
 local EnemyService = require(script.Parent:WaitForChild("EnemyService"))
+local RunManager = require(script.Parent:WaitForChild("RunManager"))
 
 -- Bindable callbacks run in this server Script's environment. Requiring a
 -- stateful module directly from the Command Bar would use a separate cache.
@@ -39,6 +40,13 @@ spawnEnemy.OnInvoke = function()
 	return EnemyService.Spawn(livingRoot().Position + Vector3.new(20, 3, 0))
 end
 spawnEnemy.Parent = folder
+
+local startBossWave = Instance.new("BindableFunction")
+startBossWave.Name = "StartBossWave"
+startBossWave.OnInvoke = function()
+	return RunManager.StartBossTest()
+end
+startBossWave.Parent = folder
 
 -- No client remote and no test tools in published servers.
 folder.Parent = ServerStorage

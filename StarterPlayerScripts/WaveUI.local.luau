@@ -29,7 +29,11 @@ local function render()
 	end
 	local time = string.format("%02d:%02d", math.floor(remaining / 60), remaining % 60)
 	local suffix = if status == "Waiting" then " • Waiting for players" else ""
-	if status == "Completed" then
+	if status == "Victory" then
+		label.Text = "Victory • Boss defeated"
+	elseif state:GetAttribute("BossWave") and remaining == 0 and status == "Running" then
+		label.Text = "Wave " .. wave .. " • Defeat the boss"
+	elseif status == "Completed" then
 		label.Text = "Run complete • Wave " .. wave
 	elseif status == "Stopped" then
 		label.Text = "Run stopped • Wave " .. wave

@@ -1,5 +1,7 @@
 # Wave/run system tests
 
+**Boss update:** The default fourth wave is now a boss encounter. Use `BOSS_TESTS.md` for its current expected behavior. The repeating-final-wave and timed-completion tests below only apply to a temporary configuration with the final wave's `Boss` field removed. Restore `Boss = "TungBoss"` and `RepeatLastWave = false` afterward. Normal-enemy wave settings 1–3 remain unchanged.
+
 Runtime tests below require Roblox Studio; they have not been run by Codex.
 
 ## Setup

@@ -61,7 +61,8 @@ local function horizontalDistance(a: Vector3, b: Vector3): number
 	return Vector3.new(offset.X, 0, offset.Z).Magnitude
 end
 
-local function findSpawnPosition(roots, characters, enemies): Vector3?
+local function findSpawnPosition(roots, characters, enemies, scale: number?): Vector3?
+	scale = scale or 1
 	local excluded = table.clone(characters)
 	local folder = workspace:FindFirstChild("Enemies")
 	if folder then
@@ -86,7 +87,7 @@ local function findSpawnPosition(roots, characters, enemies): Vector3?
 			continue
 		end
 		-- R6 feet sit three studs below the root; leave a small settling gap.
-		local position = ground.Position + Vector3.new(0, 3.25, 0)
+		local position = ground.Position + Vector3.new(0, 3 * scale + 0.25, 0)
 		local clear = true
 		for _, root in roots do
 			if horizontalDistance(position, root.Position) < Config.MinSpawnDistance then
@@ -96,17 +97,23 @@ local function findSpawnPosition(roots, characters, enemies): Vector3?
 		end
 		for _, enemy in enemies do
 			local root = enemy:FindFirstChild("HumanoidRootPart")
-			if root and root:IsA("BasePart") and horizontalDistance(position, root.Position) < Config.MinEnemySpacing then
+			if root and root:IsA("BasePart") and horizontalDistance(position, root.Position) < Config.MinEnemySpacing * scale then
 				clear = false
 				break
 			end
 		end
-		if clear and #workspace:GetPartBoundsInBox(CFrame.new(position), Vector3.new(4, 6, 3), overlapParams) == 0 then
+		if clear and #workspace:GetPartBoundsInBox(CFrame.new(position), Vector3.new(4, 6, 3) * scale, overlapParams) == 0 then
 			return position
 		end
 	end
 	-- Try again on the next scheduled spawn; never fall back to an unsafe spot.
 	return nil
+end
+
+function SpawnManager.FindEncounterPosition(scale: number): Vector3?
+	local roots, characters = livingRoots()
+	if #roots == 0 then return nil end
+	return findSpawnPosition(roots, characters, aliveEnemies(), scale)
 end
 
 function SpawnManager.Stop()

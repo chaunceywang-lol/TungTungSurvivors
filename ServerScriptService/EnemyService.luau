@@ -85,9 +85,9 @@ local function startMovementLoop()
 			local offset = target and (target.root.Position - root.Position) or Vector3.zero
 			local horizontalOffset = Vector3.new(offset.X, 0, offset.Z)
 			local distance = horizontalOffset.Magnitude
-			if not target or distance <= STOP_DISTANCE then
+			if not target or distance <= state.stopDistance then
 				state.chasing = false
-			elseif distance > RESUME_DISTANCE then
+			elseif distance > state.resumeDistance then
 				state.chasing = true
 			end
 
@@ -157,7 +157,8 @@ local function createPlaceholderRig(model: Model, position: Vector3): BasePart
 end
 
 -- Optional server-provided scaling applies only to this newly spawned enemy.
-function EnemyService.Spawn(position: Vector3, multipliers): Model
+function EnemyService.Spawn(position: Vector3, multipliers, definition): Model
+	definition = definition or {}
 	multipliers = multipliers or {}
 	local healthMultiplier = multipliers.HealthMultiplier or 1
 	local speedMultiplier = multipliers.SpeedMultiplier or 1
@@ -167,7 +168,8 @@ function EnemyService.Spawn(position: Vector3, multipliers): Model
 		assert(typeof(value) == "number" and value > 0 and value < math.huge, "Enemy multipliers must be positive and finite")
 	end
 	-- Capture the reward at spawn; later wave changes never alter this enemy.
-	local xpValue = math.max(1, math.floor(XPConfig.DefaultDropValue * xpMultiplier + 0.5))
+	local xpValue = definition.XPReward or math.max(1, math.floor(XPConfig.DefaultDropValue * xpMultiplier + 0.5))
+	local onDeath = definition.OnDeath
 	local folder = workspace:FindFirstChild("Enemies")
 	if not folder then
 		folder = Instance.new("Folder")
@@ -176,7 +178,7 @@ function EnemyService.Spawn(position: Vector3, multipliers): Model
 	end
 
 	local model = Instance.new("Model")
-	model.Name = "BasicEnemy"
+	model.Name = definition.Name or "BasicEnemy"
 	model:SetAttribute("HealthMultiplier", healthMultiplier)
 	model:SetAttribute("SpeedMultiplier", speedMultiplier)
 	model:SetAttribute("DamageMultiplier", damageMultiplier) -- Reserved; no enemy attack yet.
@@ -184,14 +186,24 @@ function EnemyService.Spawn(position: Vector3, multipliers): Model
 	model:SetAttribute("XPValue", xpValue)
 
 	local root = createPlaceholderRig(model, position)
+	if definition.Scale then
+		model:ScaleTo(definition.Scale)
+	end
+	if definition.Color then
+		for _, part in model:GetChildren() do
+			if part:IsA("BasePart") then
+				part.Color = definition.Color
+			end
+		end
+	end
 
 	local humanoid = Instance.new("Humanoid")
 	humanoid.RigType = Enum.HumanoidRigType.R6
 	humanoid.HipHeight = 0
-	humanoid.MaxHealth = MAX_HEALTH * healthMultiplier
+	humanoid.MaxHealth = (definition.Health or MAX_HEALTH) * healthMultiplier
 	humanoid.Health = humanoid.MaxHealth
-	humanoid.WalkSpeed = WALK_SPEED * speedMultiplier
-	humanoid.DisplayName = "Basic Enemy"
+	humanoid.WalkSpeed = (definition.WalkSpeed or WALK_SPEED) * speedMultiplier
+	humanoid.DisplayName = definition.DisplayName or "Basic Enemy"
 	humanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOn
 	humanoid.BreakJointsOnDeath = false
 	humanoid.Parent = model
@@ -201,7 +213,11 @@ function EnemyService.Spawn(position: Vector3, multipliers): Model
 		activeEnemies[model] = nil
 		if not droppedXP then
 			droppedXP = true
-			XPService.Spawn(root.Position, xpValue)
+			if onDeath then
+				onDeath(model)
+			else
+				XPService.Spawn(root.Position, xpValue)
+			end
 		end
 		Debris:AddItem(model, 0.3)
 	end)
@@ -215,10 +231,24 @@ function EnemyService.Spawn(position: Vector3, multipliers): Model
 		humanoid = humanoid,
 		target = nil,
 		chasing = false,
+		stopDistance = definition.StopDistance or STOP_DISTANCE,
+		resumeDistance = definition.ResumeDistance or RESUME_DISTANCE,
 	}
 	startMovementLoop()
 
 	return model
+end
+
+function EnemyService.StopAll()
+	for _, state in activeEnemies do
+		state.humanoid:Move(Vector3.zero, false)
+		state.humanoid.WalkSpeed = 0
+	end
+	table.clear(activeEnemies)
+	if movementConnection then
+		movementConnection:Disconnect()
+		movementConnection = nil
+	end
 end
 
 return EnemyService

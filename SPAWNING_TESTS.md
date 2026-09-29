@@ -1,5 +1,7 @@
 # Time-based spawn manager: Studio tests
 
+**Boss update:** Wave 4 now spawns a boss and uses an 8-second normal-enemy interval with an alive cap of 3 (including the boss). Its normal enemies have base stats. Surviving earlier enemies are retained, so the count may temporarily exceed that cap when the mandatory boss arrives. Refer to `BOSS_TESTS.md`; the old fourth-wave row below is superseded.
+
 These tests require Studio and have not been executed by Codex.
 
 ## Setup and normal gameplay

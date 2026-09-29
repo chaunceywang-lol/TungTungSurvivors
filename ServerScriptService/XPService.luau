@@ -21,6 +21,16 @@ function XPService.GetTotalXP(): number
 	return totalXP
 end
 
+-- Server-only rewards, including a boss kill that ends the run immediately.
+function XPService.AwardShared(amount: number)
+	assert(typeof(amount) == "number" and amount > 0 and amount < math.huge and amount % 1 == 0,
+		"XP award must be a positive finite integer")
+	totalXP += amount
+	for _, player in Players:GetPlayers() do
+		publishTotal(player)
+	end
+end
+
 function XPService.Start()
 	if started then
 		return
@@ -83,10 +93,7 @@ function XPService.Start()
 		end
 
 		if gainedXP > 0 then
-			totalXP += gainedXP
-			for _, player in Players:GetPlayers() do
-				publishTotal(player)
-			end
+			XPService.AwardShared(gainedXP)
 		end
 	end)
 end
