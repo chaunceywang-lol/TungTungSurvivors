@@ -1,10 +1,7 @@
-local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("GameConfig")).TungBat
-
 local TungBat = {}
-TungBat.Cooldown = Config.Cooldown
 
 -- Returns the hit position for cosmetic feedback, or nil when nothing was hit.
-function TungBat.TryAttack(character: Model, playerRoot: BasePart): Vector3?
+function TungBat.TryAttack(character: Model, playerRoot: BasePart, stats): Vector3?
 	local enemies = workspace:FindFirstChild("Enemies")
 	if not enemies then
 		return nil
@@ -12,7 +9,7 @@ function TungBat.TryAttack(character: Model, playerRoot: BasePart): Vector3?
 
 	local nearestHumanoid = nil
 	local hitPosition = nil
-	local nearestDistance = Config.Range
+	local nearestDistance = stats.Range
 	local rayParams = RaycastParams.new()
 	rayParams.FilterType = Enum.RaycastFilterType.Exclude
 	rayParams.FilterDescendantsInstances = { character }
@@ -37,7 +34,7 @@ function TungBat.TryAttack(character: Model, playerRoot: BasePart): Vector3?
 	end
 
 	if nearestHumanoid then
-		nearestHumanoid:TakeDamage(Config.Damage)
+		nearestHumanoid:TakeDamage(stats.Damage)
 	end
 	return hitPosition
 end

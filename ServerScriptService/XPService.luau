@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Config = require(ReplicatedStorage:WaitForChild("GameConfig")).XP
+local ProgressionService = require(script.Parent:WaitForChild("ProgressionService"))
 
 local XPService = {}
 local CHECK_INTERVAL = 0.1
@@ -13,8 +14,7 @@ local totalXP = 0
 assert(Config.PickupRadius > 0 and Config.PickupRadius < math.huge, "XP.PickupRadius must be positive and finite")
 
 local function publishTotal(player: Player)
-	-- Read-only display mirror for clients; the authoritative total is above.
-	player:SetAttribute("XP", totalXP)
+	ProgressionService.SetTotalXP(player, totalXP)
 end
 
 function XPService.GetTotalXP(): number
@@ -25,6 +25,8 @@ function XPService.Start()
 	if started then
 		return
 	end
+	assert(not workspace:FindFirstChild("XPPickups"),
+		"XPService is already running in another environment. Use ServerStorage.StudioTestTools.SpawnXP:Invoke(value) in the server Command Bar.")
 	started = true
 	pickupFolder = Instance.new("Folder")
 	pickupFolder.Name = "XPPickups"

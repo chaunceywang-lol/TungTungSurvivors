@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TungBat = require(script.Parent:WaitForChild("TungBat"))
+local ProgressionService = require(script.Parent:WaitForChild("ProgressionService"))
 
 local CombatService = {}
 local started = false
@@ -39,9 +40,10 @@ function CombatService.Start()
 				and humanoid and humanoid.Health > 0
 				and root and root:IsA("BasePart")
 				and now >= (nextAttackAt[player] or 0) then
-				local hitPosition = TungBat.TryAttack(character, root)
+				local stats = ProgressionService.GetWeaponStats(player)
+				local hitPosition = TungBat.TryAttack(character, root, stats)
 				if hitPosition then
-					nextAttackAt[player] = now + TungBat.Cooldown
+					nextAttackAt[player] = now + stats.Cooldown
 					swingEvent:FireAllClients(root.Position, hitPosition)
 				end
 			end
