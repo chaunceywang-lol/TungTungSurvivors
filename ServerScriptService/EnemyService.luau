@@ -1,16 +1,20 @@
 local Players = game:GetService("Players")
+local Debris = game:GetService("Debris")
+local RunService = game:GetService("RunService")
 
 local EnemyService = {}
 
 local MAX_HEALTH = 100
 local WALK_SPEED = 10
-local THINK_INTERVAL = 0.2
+local TARGET_INTERVAL = 0.2
 local STOP_DISTANCE = 4
+local RESUME_DISTANCE = 5.5
 
-function EnemyService.GetNearestLivingRoot(position: Vector3): BasePart?
-	local nearestRoot = nil
-	local nearestDistance = math.huge
+local activeEnemies = {}
+local movementConnection = nil
 
+local function getLivingTargets()
+	local targets = {}
 	for _, player in Players:GetPlayers() do
 		local character = player.Character
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -18,15 +22,136 @@ function EnemyService.GetNearestLivingRoot(position: Vector3): BasePart?
 		if character and character:IsDescendantOf(workspace)
 			and humanoid and humanoid.Health > 0
 			and root and root:IsA("BasePart") then
-			local distance = (root.Position - position).Magnitude
-			if distance < nearestDistance then
-				nearestDistance = distance
-				nearestRoot = root
-			end
+			table.insert(targets, { player = player, character = character, humanoid = humanoid, root = root })
 		end
 	end
+	return targets
+end
 
-	return nearestRoot
+local function nearestTarget(position: Vector3, targets)
+	local nearest = nil
+	local nearestDistanceSquared = math.huge
+	for _, target in targets do
+		local offset = target.root.Position - position
+		local distanceSquared = offset:Dot(offset)
+		if distanceSquared < nearestDistanceSquared then
+			nearestDistanceSquared = distanceSquared
+			nearest = target
+		end
+	end
+	return nearest
+end
+
+function EnemyService.GetNearestLivingRoot(position: Vector3): BasePart?
+	local target = nearestTarget(position, getLivingTargets())
+	return target and target.root or nil
+end
+
+local function startMovementLoop()
+	if movementConnection then
+		return
+	end
+	local targetElapsed = TARGET_INTERVAL
+	movementConnection = RunService.PreSimulation:Connect(function(deltaTime)
+		targetElapsed += deltaTime
+		local targets = nil
+		if targetElapsed >= TARGET_INTERVAL then
+			targetElapsed %= TARGET_INTERVAL
+			-- Build the player list once per targeting update, shared by all enemies.
+			targets = getLivingTargets()
+		end
+
+		for model, state in activeEnemies do
+			local humanoid, root = state.humanoid, state.root
+			if not model:IsDescendantOf(workspace) or humanoid.Health <= 0
+				or not root:IsDescendantOf(model) or not humanoid:IsDescendantOf(model) then
+				activeEnemies[model] = nil
+				continue
+			end
+			if targets then
+				state.target = nearestTarget(root.Position, targets)
+			end
+			local target = state.target
+			if target and (target.player.Parent ~= Players
+				or target.player.Character ~= target.character
+				or target.humanoid.Health <= 0
+				or not target.root:IsDescendantOf(workspace)) then
+				state.target = nil
+				target = nil
+			end
+
+			local offset = target and (target.root.Position - root.Position) or Vector3.zero
+			local horizontalOffset = Vector3.new(offset.X, 0, offset.Z)
+			local distance = horizontalOffset.Magnitude
+			if not target or distance <= STOP_DISTANCE then
+				state.chasing = false
+			elseif distance > RESUME_DISTANCE then
+				state.chasing = true
+			end
+
+			-- Let the Humanoid handle physical acceleration. Do not blend old headings
+			-- or reduce WalkSpeed toward zero while the enemy is still chasing.
+			humanoid.AutoRotate = state.chasing
+			if state.chasing then
+				humanoid:Move(horizontalOffset.Unit, false)
+			else
+				humanoid:Move(Vector3.zero, false)
+			end
+		end
+
+		if next(activeEnemies) == nil then
+			movementConnection:Disconnect()
+			movementConnection = nil
+		end
+	end)
+end
+
+-- A complete R6 assembly gives the Humanoid the torso, legs, and joints it
+-- expects for ground clearance and locomotion. No avatar download is needed.
+local function createPlaceholderRig(model: Model, position: Vector3): BasePart
+	local function part(name: string, size: Vector3, offset: Vector3): Part
+		local bodyPart = Instance.new("Part")
+		bodyPart.Name = name
+		bodyPart.Size = size
+		bodyPart.CFrame = CFrame.new(position + offset)
+		bodyPart.Color = Color3.fromRGB(180, 75, 55)
+		bodyPart.Material = Enum.Material.Wood
+		bodyPart.TopSurface = Enum.SurfaceType.Smooth
+		bodyPart.BottomSurface = Enum.SurfaceType.Smooth
+		bodyPart.CanCollide = name == "Torso" or name == "Head"
+		bodyPart.Massless = name ~= "HumanoidRootPart"
+		bodyPart.Parent = model
+		return bodyPart
+	end
+
+	local function joint(name: string, part0: BasePart, part1: BasePart, c0: CFrame, c1: CFrame)
+		local motor = Instance.new("Motor6D")
+		motor.Name = name
+		motor.Part0 = part0
+		motor.Part1 = part1
+		motor.C0 = c0
+		motor.C1 = c1
+		motor.Parent = part0
+	end
+
+	local root = part("HumanoidRootPart", Vector3.new(2, 2, 1), Vector3.zero)
+	root.Transparency = 1
+	root.RootPriority = 127
+	local torso = part("Torso", Vector3.new(2, 2, 1), Vector3.zero)
+	local head = part("Head", Vector3.new(2, 1, 1), Vector3.new(0, 1.5, 0))
+	head.Color = Color3.fromRGB(235, 170, 90)
+	local leftArm = part("Left Arm", Vector3.new(1, 2, 1), Vector3.new(-1.5, 0, 0))
+	local rightArm = part("Right Arm", Vector3.new(1, 2, 1), Vector3.new(1.5, 0, 0))
+	local leftLeg = part("Left Leg", Vector3.new(1, 2, 1), Vector3.new(-0.5, -2, 0))
+	local rightLeg = part("Right Leg", Vector3.new(1, 2, 1), Vector3.new(0.5, -2, 0))
+	joint("RootJoint", root, torso, CFrame.identity, CFrame.identity)
+	joint("Neck", torso, head, CFrame.new(0, 1, 0), CFrame.new(0, -0.5, 0))
+	joint("Left Shoulder", torso, leftArm, CFrame.new(-1, 0.5, 0), CFrame.new(0.5, 0.5, 0))
+	joint("Right Shoulder", torso, rightArm, CFrame.new(1, 0.5, 0), CFrame.new(-0.5, 0.5, 0))
+	joint("Left Hip", torso, leftLeg, CFrame.new(-0.5, -1, 0), CFrame.new(0, 1, 0))
+	joint("Right Hip", torso, rightLeg, CFrame.new(0.5, -1, 0), CFrame.new(0, 1, 0))
+	model.PrimaryPart = root
+	return root
 end
 
 -- Each call creates an independent enemy; the startup script controls the count.
@@ -41,60 +166,35 @@ function EnemyService.Spawn(position: Vector3): Model
 	local model = Instance.new("Model")
 	model.Name = "BasicEnemy"
 
-	local root = Instance.new("Part")
-	root.Name = "HumanoidRootPart"
-	root.Size = Vector3.new(3, 4, 3)
-	root.Color = Color3.fromRGB(180, 75, 55)
-	root.Material = Enum.Material.Wood
-	root.TopSurface = Enum.SurfaceType.Smooth
-	root.BottomSurface = Enum.SurfaceType.Smooth
-	root.CFrame = CFrame.new(position)
-	root.Parent = model
-	model.PrimaryPart = root
-
-	local head = Instance.new("Part")
-	head.Name = "Head"
-	head.Size = Vector3.new(2, 2, 2)
-	head.Color = Color3.fromRGB(235, 170, 90)
-	head.Material = Enum.Material.Wood
-	head.CanCollide = false
-	head.Massless = true
-	head.CFrame = root.CFrame * CFrame.new(0, 3, 0)
-	head.Parent = model
-
-	local weld = Instance.new("WeldConstraint")
-	weld.Part0 = root
-	weld.Part1 = head
-	weld.Parent = root
+	local root = createPlaceholderRig(model, position)
 
 	local humanoid = Instance.new("Humanoid")
-	-- This block placeholder uses a welded head rather than a character rig.
-	humanoid.RequiresNeck = false
-	humanoid.RigType = Enum.HumanoidRigType.R15
+	humanoid.RigType = Enum.HumanoidRigType.R6
 	humanoid.HipHeight = 0
 	humanoid.MaxHealth = MAX_HEALTH
 	humanoid.Health = MAX_HEALTH
 	humanoid.WalkSpeed = WALK_SPEED
 	humanoid.DisplayName = "Basic Enemy"
 	humanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOn
+	humanoid.BreakJointsOnDeath = false
 	humanoid.Parent = model
+	humanoid.Died:Connect(function()
+		-- Stop tracking this enemy immediately; preserve the existing corpse cleanup.
+		activeEnemies[model] = nil
+		Debris:AddItem(model, 0.3)
+	end)
 
 	model.Parent = folder
 	-- Keep physics ownership on the server, including when players approach.
 	root:SetNetworkOwner(nil)
 
-	task.spawn(function()
-		while model:IsDescendantOf(workspace) and humanoid.Health > 0 do
-			local target = EnemyService.GetNearestLivingRoot(root.Position)
-			if target and (target.Position - root.Position).Magnitude > STOP_DISTANCE then
-				humanoid:MoveTo(target.Position)
-			else
-				-- Cancel the previous destination when no living target is available.
-				humanoid:MoveTo(root.Position)
-			end
-			task.wait(THINK_INTERVAL)
-		end
-	end)
+	activeEnemies[model] = {
+		root = root,
+		humanoid = humanoid,
+		target = nil,
+		chasing = false,
+	}
+	startMovementLoop()
 
 	return model
 end

@@ -1,4 +1,7 @@
 local EnemyService = require(script.Parent:WaitForChild("EnemyService"))
+local CombatService = require(script.Parent:WaitForChild("CombatService"))
+
+CombatService.Start()
 
 -- Wait for a living character, then create exactly one enemy for this server.
 local firstRoot = EnemyService.GetNearestLivingRoot(Vector3.zero)
