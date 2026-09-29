@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 local Debris = game:GetService("Debris")
 local RunService = game:GetService("RunService")
 local XPService = require(script.Parent:WaitForChild("XPService"))
+local XPConfig = require(game:GetService("ReplicatedStorage"):WaitForChild("GameConfig")).XP
 
 local EnemyService = {}
 
@@ -155,8 +156,18 @@ local function createPlaceholderRig(model: Model, position: Vector3): BasePart
 	return root
 end
 
--- Each call creates an independent enemy; the startup script controls the count.
-function EnemyService.Spawn(position: Vector3): Model
+-- Optional server-provided scaling applies only to this newly spawned enemy.
+function EnemyService.Spawn(position: Vector3, multipliers): Model
+	multipliers = multipliers or {}
+	local healthMultiplier = multipliers.HealthMultiplier or 1
+	local speedMultiplier = multipliers.SpeedMultiplier or 1
+	local damageMultiplier = multipliers.DamageMultiplier or 1
+	local xpMultiplier = multipliers.XPMultiplier or 1
+	for _, value in { healthMultiplier, speedMultiplier, damageMultiplier, xpMultiplier } do
+		assert(typeof(value) == "number" and value > 0 and value < math.huge, "Enemy multipliers must be positive and finite")
+	end
+	-- Capture the reward at spawn; later wave changes never alter this enemy.
+	local xpValue = math.max(1, math.floor(XPConfig.DefaultDropValue * xpMultiplier + 0.5))
 	local folder = workspace:FindFirstChild("Enemies")
 	if not folder then
 		folder = Instance.new("Folder")
@@ -166,15 +177,20 @@ function EnemyService.Spawn(position: Vector3): Model
 
 	local model = Instance.new("Model")
 	model.Name = "BasicEnemy"
+	model:SetAttribute("HealthMultiplier", healthMultiplier)
+	model:SetAttribute("SpeedMultiplier", speedMultiplier)
+	model:SetAttribute("DamageMultiplier", damageMultiplier) -- Reserved; no enemy attack yet.
+	model:SetAttribute("XPMultiplier", xpMultiplier)
+	model:SetAttribute("XPValue", xpValue)
 
 	local root = createPlaceholderRig(model, position)
 
 	local humanoid = Instance.new("Humanoid")
 	humanoid.RigType = Enum.HumanoidRigType.R6
 	humanoid.HipHeight = 0
-	humanoid.MaxHealth = MAX_HEALTH
-	humanoid.Health = MAX_HEALTH
-	humanoid.WalkSpeed = WALK_SPEED
+	humanoid.MaxHealth = MAX_HEALTH * healthMultiplier
+	humanoid.Health = humanoid.MaxHealth
+	humanoid.WalkSpeed = WALK_SPEED * speedMultiplier
 	humanoid.DisplayName = "Basic Enemy"
 	humanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOn
 	humanoid.BreakJointsOnDeath = false
@@ -185,7 +201,7 @@ function EnemyService.Spawn(position: Vector3): Model
 		activeEnemies[model] = nil
 		if not droppedXP then
 			droppedXP = true
-			XPService.Spawn(root.Position)
+			XPService.Spawn(root.Position, xpValue)
 		end
 		Debris:AddItem(model, 0.3)
 	end)

@@ -1,7 +1,11 @@
 return {
 	EnemySpawning = {
-		RespawnDelay = 2, -- Seconds after the previous enemy dies or is removed.
-		SpawnDistance = 20, -- Studs beside a living player.
+		InitialCount = 2,
+		MinSpawnDistance = 24,
+		MaxSpawnDistance = 36,
+		MinEnemySpacing = 6,
+		PlacementAttempts = 12,
+		-- Wave timing and enemy scaling live in ReplicatedStorage.WaveConfig.
 	},
 	Leveling = {
 		BaseRequirement = 25, -- XP needed to go from level 1 to level 2.

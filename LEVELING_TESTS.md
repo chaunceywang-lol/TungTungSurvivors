@@ -9,7 +9,7 @@ These are manual runtime tests, not a record of tests already passed.
 3. Confirm `StarterPlayer > StarterPlayerScripts` contains a LocalScript named `LevelUpUI`.
 4. Keep the current config for these expectations: XP drops 25, pickup radius 10, base level requirement 25, requirement increase 25; Tung Bat damage 25, cooldown 1, range 7.
 5. Open Output and Properties. No UI or remote objects need manual creation.
-6. For the exact XP totals in these scripted tests, temporarily set `EnemySpawning.RespawnDelay` to `999` before Play so automatic replacement enemies do not add extra XP. Restore it to `2` afterward and restart Play to test the continuous loop.
+6. For the exact XP totals in these scripted tests, temporarily set `EnemySpawning.InitialCount` to `1` and every wave's (in ReplicatedStorage.WaveConfig) `SpawnInterval` to `999` before Play so timed spawns do not add extra XP. Restore `InitialCount = 2` and wave intervals `5, 4, 3, 2` afterward and restart Play to test continuous spawning.
 7. Confirm `ServerScriptService > StudioTestTools` is a **Script**. During Play it creates `ServerStorage > StudioTestTools` with two BindableFunctions. These tools exist only in Studio.
 
 Do not directly `require` stateful services from the Command Bar: it has its own module cache, which can create conflicting XP/progression state. Use the helpers below instead. If you previously used the old commands, stop and restart Play first. To return to your character after a server command, switch from Server to Client in the same running session; stopping Play starts a new run with reset XP.
@@ -87,3 +87,4 @@ game:GetService("ServerStorage").StudioTestTools.SpawnEnemy:Invoke()
 Confirm it still follows, takes automatic bat damage, dies, and drops one pickup. In solo play, after two Heavy Tung choices, the 100-health enemy should die in three hits. Inspect its Humanoid health in the server view to confirm individual hits do 39.0625 damage. Quick Tung affects subsequent attack cooldowns; a cooldown already in progress is allowed to finish. Long Tung increases the actual server hit range, not just its displayed attribute.
 
 The server keeps running while choices are open. Upgrades stack multiplicatively, and a fresh server resets progression. Since XP is shared, late joiners catch up to the shared total and receive the corresponding pending choices.
+
