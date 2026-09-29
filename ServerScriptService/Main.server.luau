@@ -1,6 +1,8 @@
 local EnemyService = require(script.Parent:WaitForChild("EnemyService"))
 local CombatService = require(script.Parent:WaitForChild("CombatService"))
+local XPService = require(script.Parent:WaitForChild("XPService"))
 
+XPService.Start()
 CombatService.Start()
 
 -- Wait for a living character, then create exactly one enemy for this server.

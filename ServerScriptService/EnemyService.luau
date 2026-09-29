@@ -1,6 +1,7 @@
 local Players = game:GetService("Players")
 local Debris = game:GetService("Debris")
 local RunService = game:GetService("RunService")
+local XPService = require(script.Parent:WaitForChild("XPService"))
 
 local EnemyService = {}
 
@@ -178,9 +179,14 @@ function EnemyService.Spawn(position: Vector3): Model
 	humanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOn
 	humanoid.BreakJointsOnDeath = false
 	humanoid.Parent = model
+	local droppedXP = false
 	humanoid.Died:Connect(function()
 		-- Stop tracking this enemy immediately; preserve the existing corpse cleanup.
 		activeEnemies[model] = nil
+		if not droppedXP then
+			droppedXP = true
+			XPService.Spawn(root.Position)
+		end
 		Debris:AddItem(model, 0.3)
 	end)
 
