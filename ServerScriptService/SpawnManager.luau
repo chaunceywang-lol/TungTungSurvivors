@@ -1,17 +1,43 @@
 local Players = game:GetService("Players")
 local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("GameConfig")).EnemySpawning
 local EnemyService = require(script.Parent:WaitForChild("EnemyService"))
+local EnemyConfig = require(game:GetService("ReplicatedStorage"):WaitForChild("EnemyConfig"))
 
 local SpawnManager = {}
 local active = false
 local untilSpawn = 0
 local initialSpawn = true
 local random = Random.new()
--- Register future enemy factories here; only the existing type is implemented.
-local enemyFactories = { BasicEnemy = EnemyService.Spawn }
+local poolCache = {}
 
 function SpawnManager.SupportsEnemyType(enemyType: string): boolean
-	return enemyFactories[enemyType] ~= nil
+	return EnemyConfig[enemyType] ~= nil
+end
+
+function SpawnManager.ValidateWavePool(wave)
+	assert(typeof(wave.EnemyPool) == "table" and #wave.EnemyPool > 0, "Wave EnemyPool must not be empty")
+	local entries, seen, total = {}, {}, 0
+	for _, entry in wave.EnemyPool do
+		assert(typeof(entry.Type) == "string" and SpawnManager.SupportsEnemyType(entry.Type), "Unknown pool enemy type: " .. tostring(entry.Type))
+		assert(not seen[entry.Type], "Duplicate pool enemy type: " .. entry.Type)
+		seen[entry.Type] = true
+		assert(typeof(entry.Weight) == "number" and entry.Weight >= 0 and entry.Weight < math.huge, "Weights must be finite and nonnegative")
+		if entry.Weight > 0 then
+			total += entry.Weight
+			table.insert(entries, { Type = entry.Type, UpperBound = total })
+		end
+	end
+	assert(total > 0 and total < math.huge, "EnemyPool must have a positive finite total weight")
+	poolCache[wave] = { Entries = entries, Total = total }
+end
+
+local function chooseEnemyType(wave): string
+	local pool = poolCache[wave]
+	local roll = random:NextNumber(0, pool.Total)
+	for _, entry in pool.Entries do
+		if roll < entry.UpperBound then return entry.Type end
+	end
+	return pool.Entries[#pool.Entries].Type
 end
 
 local function positive(value)
@@ -153,9 +179,10 @@ function SpawnManager.Update(deltaTime: number, wave, waveNumber: number)
 	local count = math.min(initialSpawn and Config.InitialCount or 1, math.max(0, wave.MaxAlive - #enemies))
 	initialSpawn = false
 	for _ = 1, count do
-		local position = findSpawnPosition(roots, characters, enemies)
+		local enemyType = chooseEnemyType(wave)
+		local position = findSpawnPosition(roots, characters, enemies, EnemyConfig[enemyType].Scale)
 		if position then
-			local enemy = enemyFactories[wave.EnemyType](position, wave)
+			local enemy = EnemyService.SpawnType(position, enemyType, wave)
 			enemy:SetAttribute("SpawnWave", waveNumber)
 			enemy:SetAttribute("SpawnPosition", position)
 			table.insert(enemies, enemy)

@@ -1,5 +1,7 @@
 # Wave/run system tests
 
+**Enemy variety update:** Normal spawns now use `WaveConfig.Waves[n].EnemyPool` and base stats from `EnemyConfig`. Waves 2 and 3 can spawn Fast and Tank enemies; the old Basic-only stat table below applies only to BasicEnemy. See `ENEMY_VARIETY_TESTS.md` for per-type values. The saved first three durations are currently 4 seconds; explicitly set 60 before testing the old full-length timeline.
+
 **Boss update:** The default fourth wave is now a boss encounter. Use `BOSS_TESTS.md` for its current expected behavior. The repeating-final-wave and timed-completion tests below only apply to a temporary configuration with the final wave's `Boss` field removed. Restore `Boss = "TungBoss"` and `RepeatLastWave = false` afterward. Normal-enemy wave settings 1–3 remain unchanged.
 
 Runtime tests below require Roblox Studio; they have not been run by Codex.

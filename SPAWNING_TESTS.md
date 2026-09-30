@@ -1,5 +1,7 @@
 # Time-based spawn manager: Studio tests
 
+**Enemy variety update:** See `ENEMY_VARIETY_TESTS.md` for weighted pools and type-specific health/speed. The table below describes BasicEnemy only. Set the first three wave durations to 60 to test this timeline; the saved durations are currently 4 seconds.
+
 **Boss update:** Wave 4 now spawns a boss and uses an 8-second normal-enemy interval with an alive cap of 3 (including the boss). Its normal enemies have base stats. Surviving earlier enemies are retained, so the count may temporarily exceed that cap when the mandatory boss arrives. Refer to `BOSS_TESTS.md`; the old fourth-wave row below is superseded.
 
 These tests require Studio and have not been executed by Codex.
@@ -48,4 +50,3 @@ The cap is a limit, not a batch size: it fills one enemy per scheduled spawn. Sm
 3. After respawn, timing should continue from where it paused without a backlog. Existing enemies and the game's XP/upgrade state are not reset.
 
 Do not call `require(SpawnManager)` from the Command Bar: the Command Bar has a separate module environment. Main starts RunManager in the actual server environment; RunManager drives SpawnManager. RunManager.Stop() stops the clock and new spawns without killing existing enemies. Wave definitions are in ReplicatedStorage.WaveConfig.
-

@@ -8,6 +8,8 @@ local ServerStorage = game:GetService("ServerStorage")
 local XPService = require(script.Parent:WaitForChild("XPService"))
 local EnemyService = require(script.Parent:WaitForChild("EnemyService"))
 local RunManager = require(script.Parent:WaitForChild("RunManager"))
+local SpawnManager = require(script.Parent:WaitForChild("SpawnManager"))
+local EnemyConfig = require(game:GetService("ReplicatedStorage"):WaitForChild("EnemyConfig"))
 
 -- Bindable callbacks run in this server Script's environment. Requiring a
 -- stateful module directly from the Command Bar would use a separate cache.
@@ -36,8 +38,12 @@ spawnXP.Parent = folder
 
 local spawnEnemy = Instance.new("BindableFunction")
 spawnEnemy.Name = "SpawnEnemy"
-spawnEnemy.OnInvoke = function()
-	return EnemyService.Spawn(livingRoot().Position + Vector3.new(20, 3, 0))
+spawnEnemy.OnInvoke = function(enemyType)
+	enemyType = enemyType or "BasicEnemy"
+	assert(typeof(enemyType) == "string" and EnemyConfig[enemyType], "Unknown enemy type")
+	local position = SpawnManager.FindEncounterPosition(EnemyConfig[enemyType].Scale)
+	assert(position, "No safe placement found; move to open, flat ground and try again")
+	return EnemyService.SpawnType(position, enemyType)
 end
 spawnEnemy.Parent = folder
 

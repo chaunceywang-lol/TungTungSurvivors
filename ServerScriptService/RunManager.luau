@@ -30,7 +30,7 @@ for index, wave in Config.Waves do
 	assert(positive(wave.MaxAlive) and wave.MaxAlive % 1 == 0, "Wave MaxAlive must be a positive integer")
 	assert(positive(wave.HealthMultiplier) and positive(wave.SpeedMultiplier)
 		and positive(wave.DamageMultiplier) and positive(wave.XPMultiplier), "Wave multipliers must be positive and finite")
-	assert(SpawnManager.SupportsEnemyType(wave.EnemyType), "Unknown wave enemy type: " .. tostring(wave.EnemyType))
+	SpawnManager.ValidateWavePool(wave)
 	if wave.Boss then
 		assert(BossTypes[wave.Boss], "Unknown boss type: " .. tostring(wave.Boss))
 		assert(index == #Config.Waves and not Config.RepeatLastWave, "The victory boss must be the final, nonrepeating wave")
